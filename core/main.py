@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from typing import Optional, Annotated, List
 from contextlib import asynccontextmanager
 from random import randint
+from dataclasses import dataclass
 
 
 @asynccontextmanager
@@ -71,11 +72,33 @@ def retrieve_names_list(
     return names_list
 
 
+@dataclass
+class Student:
+    name: str
+    age: int
+
+
+@dataclass
+class StudentResponse:
+    id: int
+    name: str
+    age: int
+
+
+@app.post("/names", response_model=StudentResponse, status_code=status.HTTP_201_CREATED)
+def create_name(student: Student):
+    name_obj = {"id": randint(6, 100), "name": student.name, "age": student.age}
+    names_list.append(name_obj)
+    return name_obj
+
+
+"""
 @app.post("/names", status_code=status.HTTP_201_CREATED)
 def create_name(name: str = Body(embed=True)):
     name_obj = {"id": randint(6, 100), "name": name}
     names_list.append(name_obj)
     return name_obj
+"""
 
 
 @app.get("/names/{name_id}")

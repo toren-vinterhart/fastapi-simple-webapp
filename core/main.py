@@ -14,6 +14,7 @@ from typing import Optional, Annotated, List
 from contextlib import asynccontextmanager
 from random import randint
 from dataclasses import dataclass
+from schemas import PersonCreateSchema, PersonResponseSchema, PersonUpdateSchema
 
 
 @asynccontextmanager
@@ -26,11 +27,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 names_list = [
-    {"id": 1, "name": "Jack"},
-    {"id": 2, "name": "Max"},
-    {"id": 3, "name": "Mika"},
-    {"id": 4, "name": "David"},
-    {"id": 5, "name": "Peter"},
+    {"id": 1, "name": "jack"},
+    {"id": 2, "name": "max"},
+    {"id": 3, "name": "mika"},
+    {"id": 4, "name": "david"},
+    {"id": 5, "name": "peter"},
 ]
 
 
@@ -52,7 +53,7 @@ def root():
     return JSONResponse(content=content, status_code=status.HTTP_202_ACCEPTED)
 
 
-@app.get("/names")
+@app.get("/names", response_model=list[PersonResponseSchema])
 def retrieve_names_list(
     q: Annotated[
         str | None,
@@ -72,6 +73,16 @@ def retrieve_names_list(
     return names_list
 
 
+@app.post(
+    "/names", response_model=PersonResponseSchema, status_code=status.HTTP_201_CREATED
+)
+def create_name(person: PersonCreateSchema):
+    name_obj = {"id": randint(6, 100), "name": person.name}
+    names_list.append(name_obj)
+    return name_obj
+
+
+"""
 @dataclass
 class Student:
     name: str
@@ -90,6 +101,7 @@ def create_name(student: Student):
     name_obj = {"id": randint(6, 100), "name": student.name, "age": student.age}
     names_list.append(name_obj)
     return name_obj
+"""
 
 
 """
@@ -101,13 +113,12 @@ def create_name(name: str = Body(embed=True)):
 """
 
 
-@app.get("/names/{name_id}")
+@app.get("/names/{name_id}", response_model=PersonResponseSchema)
 def retrieve_name_detail(
     name_id: Annotated[
         int,
         Path(
-            alias="object_id",
-            title="object id",
+            title="Object ID",
             description="The ID of the name to retrieve.",
         ),
     ],
@@ -120,6 +131,22 @@ def retrieve_name_detail(
     )
 
 
+@app.put(
+    "/names/{name_id}",
+    response_model=PersonResponseSchema,
+    status_code=status.HTTP_200_OK,
+)
+def update_name_detail(person: PersonUpdateSchema, name_id: int = Path()):
+    for item in names_list:
+        if item["id"] == name_id:
+            item["name"] = person.name
+            return item
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND, detail="object not found!"
+    )
+
+
+"""
 @app.put("/names/{name_id}", status_code=status.HTTP_200_OK)
 def update_name_detail(name_id: int = Path(), name: str = Form()):
     for item in names_list:
@@ -129,6 +156,7 @@ def update_name_detail(name_id: int = Path(), name: str = Form()):
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND, detail="object not found!"
     )
+"""
 
 
 @app.delete("/names/{name_id}")

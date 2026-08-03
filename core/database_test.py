@@ -24,23 +24,58 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String(30))
+    email = Column(String())
+    password = Column(String())
+    is_active = Column(Boolean, default=True)
+    is_verified = Column(Boolean, default=False)
+
+    addresses = relationship("Address", backref="user")
+    # addresses = relationship("Address", back_populates="user")
+    orders = relationship("Order", back_populates="user")
+
+    def __repr__(self):
+        return f"User(id: {self.id}, username: {self.username}, email: {self.email})"
+
+"""
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
     first_name = Column(String(30))
     last_name = Column(String(30), nullable=True)
     age = Column(Integer)
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
-    
+
+    addresses = relationship("Address", back_populates="user")
     orders = relationship("Order", back_populates="user")
 
     def __repr__(self):
         return f"User(id: {self.id}, first_name: {self.first_name}, last_name: {self.last_name})"
+"""
+
+
+class Address(Base):
+    __tablename__ = "addresses"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    city = Column(String())
+    state = Column(String())
+    zip_code = Column(String())
+
+    # user = relationship("User", back_populates="addresses")
+
+    def __repr__(self):
+        return f"Address(id: {self.id}, user_id: {self.user_id}, city: {self.city})"
 
 
 class Order(Base):
     __tablename__ = "orders"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(ForeignKey("users.id"))
+    user_id = Column(Integer, ForeignKey("users.id"))
     total_amount = Column(Integer)
 
     user = relationship("User", back_populates="orders")
@@ -50,6 +85,32 @@ Base.metadata.create_all(engine)
 
 session = SessionLocal()
 
+session.add(User(username="John", email="john@gmail.com", password="123"))
+session.commit()
+
+user = session.query(User).filter_by(username="John").one_or_none()
+print(user)
+
+addresses = [
+    Address(user_id=user.id, city="city1", state="state1", zip_code="zipcode1"),
+    Address(user_id=user.id, city="city2", state="state2", zip_code="zipcode2"),
+]
+
+session.add_all(addresses)
+session.commit()
+
+addresses = session.query(Address).filter_by(user_id=user.id).all()
+address = session.query(Address).filter_by(user_id=user.id, city="city1").one_or_none()
+print(addresses)
+print(address)
+print(address.user_id)
+print(address.user) # This works because of the relationship
+print(address.user.username)
+
+print(user.addresses)
+
+
+""" CRUD query examples using filters, logical operators, aggregation, and raw SQL
 # inserting data
 John = User(first_name="John", age=44)
 session.add(John)
@@ -145,3 +206,4 @@ print(result)
 query = text("SELECT * FROM users")
 result = session.execute(query).fetchall()
 print(result)
+"""

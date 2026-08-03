@@ -1,6 +1,7 @@
-from sqlalchemy import create_engine, Column, ForeignKey, Integer, String, Text, Boolean, and_, or_, not_, func
-from sqlalchemy.orm import sessionmaker, declarative_base, relationship
+from sqlalchemy import create_engine, Column, ForeignKey, Integer, String, Text, DateTime, Boolean, and_, or_, not_, func
+from sqlalchemy.orm import sessionmaker, declarative_base, relationship, backref
 from sqlalchemy.sql import text
+from datetime import datetime
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./sqlite.db"
 # SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
@@ -33,6 +34,7 @@ class User(Base):
     profile = relationship("Profile", backref="user", uselist=False)
     addresses = relationship("Address", backref="user")
     # addresses = relationship("Address", back_populates="user")
+    posts = relationship("Post", backref="user")
     orders = relationship("Order", back_populates="user")
 
     def __repr__(self):
@@ -88,6 +90,43 @@ class Address(Base):
         return f"Address(id: {self.id}, user_id: {self.user_id}, city: {self.city})"
 
 
+class Post(Base):
+    __tablename__ = "posts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    title = Column(String())
+    content = Column(Text())
+
+    created_date = Column(DateTime(), default=datetime.now)
+    updated_date = Column(DateTime(), default=datetime.now, onupdate=datetime.now)
+
+    comments = relationship("Comment", backref="post")
+
+    def __repr__(self):
+        return f"Post(id: {self.id}, title: {self.title})"
+
+
+class Comment(Base):
+    __tablename__ = "comments"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"))
+    post_id = Column(Integer, ForeignKey("posts.id"))
+    parent_id = Column(Integer, ForeignKey("comments.id"), nullable=True)
+    content = Column(Text())
+
+    created_date = Column(DateTime(), default=datetime.now())
+
+    # parent = relationship("Comment", back_populates="children", remote_side=[id])
+    # children = relationship("Comment", back_populates="parent", remote_side=[parent_id])
+    # Alternative approach: Use backref to define both parent and children relationships in a single declaration.
+    children = relationship("Comment", backref=backref("parent", remote_side=[id]))
+
+    def __repr__(self):
+        return f"Comment(id: {self.id}, post_id: {self.post_id}, user_id: {self.user_id}, parent_id: {self.parent_id})"
+    
+
 class Order(Base):
     __tablename__ = "orders"
 
@@ -107,6 +146,34 @@ session.commit()
 
 user = session.query(User).filter_by(username="John").one_or_none()
 
+session.add(Post(user_id=user.id, title="Example title", content="Example content"))
+session.commit()
+
+post = user.posts[0]
+session.add(Comment(user_id=user.id, post_id=post.id, content="this is a parent comment"))
+session.commit()
+
+parent_comment = post.comments[0]
+session.add(Comment(user_id=user.id, post_id=post.id, parent_id=parent_comment.id, content="this is a reply comment"))
+session.commit()
+
+session.add(Comment(user_id=user.id, post_id=post.id, parent_id=parent_comment.id, content="this is a second reply comment"))
+session.commit()
+
+print(post.comments)
+comments = session.query(Comment).filter_by(post_id=post.id, parent_id=None).all()
+print(comments)
+
+for comment in comments:
+    print(comment.children)
+
+
+""" Query for testing one-to-one relationships between User and Profile models
+session.add(User(username="John", email="john@gmail.com", password="123"))
+session.commit()
+
+user = session.query(User).filter_by(username="John").one_or_none()
+
 try:
     session.add(Profile(user_id=user.id, first_name="John", last_name="Wood"))
     session.commit()
@@ -116,6 +183,7 @@ except Exception as e:
 
 print(user.profile)
 print(user.profile.first_name)
+"""
 
 
 """ Query for testing one-to-many relationships between tables

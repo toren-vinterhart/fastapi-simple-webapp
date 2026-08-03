@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, ForeignKey, Integer, String, Boolean, and_, or_, not_, func
+from sqlalchemy import create_engine, Column, ForeignKey, Integer, String, Text, Boolean, and_, or_, not_, func
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship
 from sqlalchemy.sql import text
 
@@ -30,12 +30,14 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
 
+    profile = relationship("Profile", backref="user", uselist=False)
     addresses = relationship("Address", backref="user")
     # addresses = relationship("Address", back_populates="user")
     orders = relationship("Order", back_populates="user")
 
     def __repr__(self):
         return f"User(id: {self.id}, username: {self.username}, email: {self.email})"
+    
 
 """
 class User(Base):
@@ -54,6 +56,21 @@ class User(Base):
     def __repr__(self):
         return f"User(id: {self.id}, first_name: {self.first_name}, last_name: {self.last_name})"
 """
+
+
+class Profile(Base):
+    __tablename__ = "profiles"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True)
+    # Alternative approach: remove the id column and use user_id as the primary key for a one-to-one relationship.
+    # user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
+    first_name = Column(String())
+    last_name = Column(String())
+    bio = Column(Text(), nullable=True)
+
+    def __repr__(self):
+        return f"Profile(id: {self.id}, first_name: {self.first_name}, last_name: {self.last_name})"
 
 
 class Address(Base):
@@ -89,6 +106,23 @@ session.add(User(username="John", email="john@gmail.com", password="123"))
 session.commit()
 
 user = session.query(User).filter_by(username="John").one_or_none()
+
+try:
+    session.add(Profile(user_id=user.id, first_name="John", last_name="Wood"))
+    session.commit()
+except Exception as e:
+    session.rollback()
+    print(e)
+
+print(user.profile)
+print(user.profile.first_name)
+
+
+""" Query for testing one-to-many relationships between tables
+session.add(User(username="John", email="john@gmail.com", password="123"))
+session.commit()
+
+user = session.query(User).filter_by(username="John").one_or_none()
 print(user)
 
 addresses = [
@@ -108,6 +142,7 @@ print(address.user) # This works because of the relationship
 print(address.user.username)
 
 print(user.addresses)
+"""
 
 
 """ CRUD query examples using filters, logical operators, aggregation, and raw SQL

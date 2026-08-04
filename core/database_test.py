@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, ForeignKey, Integer, String, Text, DateTime, Boolean, and_, or_, not_, func
+from sqlalchemy import create_engine, Column, ForeignKey, Integer, String, Text, DateTime, Boolean, and_, or_, not_, func, Table, UniqueConstraint
 from sqlalchemy.orm import sessionmaker, declarative_base, relationship, backref
 from sqlalchemy.sql import text
 from datetime import datetime
@@ -20,6 +20,16 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # create base class for declaring tables
 Base = declarative_base()
 
+enrollments = Table(
+    "enrollments",
+    Base.metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("user_id", Integer, ForeignKey("users.id")),
+    Column("course_id", Integer, ForeignKey("courses.id")),
+    Column("enrolled_date", DateTime(), default=datetime.now),
+    UniqueConstraint("user_id", "course_id", name="unique_user_course_enrolled"),
+)
+
 
 class User(Base):
     __tablename__ = "users"
@@ -36,6 +46,7 @@ class User(Base):
     # addresses = relationship("Address", back_populates="user")
     posts = relationship("Post", backref="user")
     orders = relationship("Order", back_populates="user")
+    courses = relationship("Course", secondary=enrollments, back_populates="attendees")
 
     def __repr__(self):
         return f"User(id: {self.id}, username: {self.username}, email: {self.email})"
@@ -127,6 +138,21 @@ class Comment(Base):
         return f"Comment(id: {self.id}, post_id: {self.post_id}, user_id: {self.user_id}, parent_id: {self.parent_id})"
     
 
+class Course(Base):
+    __tablename__ = "courses"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    title = Column(String())
+    description = Column(Text())
+
+    created_date = Column(DateTime(), default=datetime.now)
+
+    attendees = relationship("User", secondary=enrollments, back_populates="courses")
+
+    def __repr__(self):
+        return f"Course(id: {self.id}, title: {self.title})"
+
+
 class Order(Base):
     __tablename__ = "orders"
 
@@ -136,11 +162,42 @@ class Order(Base):
 
     user = relationship("User", back_populates="orders")
 
+
 # to create tables and database
 Base.metadata.create_all(engine)
 
 session = SessionLocal()
 
+session.add(User(username="John", email="john@gmail.com", password="123"))
+session.commit()
+
+user = session.query(User).filter_by(username="John").one_or_none()
+print(user)
+
+session.add(Course(title="Python", description="This is a Python course"))
+session.commit()
+
+python_course = session.query(Course).filter_by(title="Python").one()
+print(python_course)
+
+session.add(Course(title="FastApi", description="This is a FastApi course"))
+session.commit()
+
+fastapi_course = session.query(Course).filter_by(title="FastApi").one()
+print(fastapi_course)
+
+user.courses.append(python_course)
+session.commit()
+
+fastapi_course.attendees.append(user)
+session.commit()
+
+print(user.courses)
+print(python_course.attendees)
+print(fastapi_course.attendees)
+
+
+""" Query for testing self-referencing relationship in the commit model
 session.add(User(username="John", email="john@gmail.com", password="123"))
 session.commit()
 
@@ -166,6 +223,7 @@ print(comments)
 
 for comment in comments:
     print(comment.children)
+"""
 
 
 """ Query for testing one-to-one relationships between User and Profile models

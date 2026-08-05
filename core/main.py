@@ -8,24 +8,30 @@ from fastapi import (
     Body,
     File,
     UploadFile,
+    Depends
 )
 from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
 from typing import Optional, Annotated, List
 from contextlib import asynccontextmanager
 from random import randint
 from dataclasses import dataclass
 from schemas import PersonCreateSchema, PersonResponseSchema, PersonUpdateSchema
+from database import Base, engine, Person, get_db
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Application starting up...")
+    Base.metadata.create_all(engine)
     yield
     print("Application shutting down...")
 
 
 app = FastAPI(lifespan=lifespan)
 
+
+"""
 names_list = [
     {"id": 1, "name": "jack"},
     {"id": 2, "name": "max"},
@@ -33,6 +39,7 @@ names_list = [
     {"id": 4, "name": "david"},
     {"id": 5, "name": "peter"},
 ]
+"""
 
 
 """ The on_event method is deprecated
@@ -64,6 +71,29 @@ def retrieve_names_list(
             max_length=50,
         ),
     ] = None,
+    db: Session = Depends(get_db)
+):
+
+    query = db.query(Person)
+    if q:
+        query = query.filter_by(name=q)
+    
+    result = query.all()
+    return result
+
+
+"""
+@app.get("/names", response_model=list[PersonResponseSchema])
+def retrieve_names_list(
+    q: Annotated[
+        str | None,
+        Query(
+            alias="search",
+            description="Filter names by the provided search term.",
+            # example="John",
+            max_length=50,
+        ),
+    ] = None,
 ):
     # def retrieve_names_list(q: str | None = Query(default=None, max_length=50)):
     # def retrieve_names_list(q: Optional[str] = None):
@@ -71,8 +101,21 @@ def retrieve_names_list(
     if q:
         return [item for item in names_list if item["name"] == q]
     return names_list
+"""
 
 
+@app.post(
+    "/names", response_model=PersonResponseSchema, status_code=status.HTTP_201_CREATED
+)
+def create_name(request: PersonCreateSchema, db: Session = Depends(get_db)):
+    new_person = Person(name=request.name)
+    db.add(new_person)
+    db.commit()
+    db.refresh(new_person)
+    return new_person
+
+
+"""
 @app.post(
     "/names", response_model=PersonResponseSchema, status_code=status.HTTP_201_CREATED
 )
@@ -80,6 +123,7 @@ def create_name(person: PersonCreateSchema):
     name_obj = {"id": randint(6, 100), "name": person.name}
     names_list.append(name_obj)
     return name_obj
+"""
 
 
 """
@@ -112,7 +156,29 @@ def create_name(name: str = Body(embed=True)):
     return name_obj
 """
 
+@app.get("/names/{person_id}", response_model=PersonResponseSchema)
+def retrieve_name_detail(
+    person_id: Annotated[
+        int,
+        Path(
+            title="Person ID",
+            description="The ID of the Person to retrieve.",
+        ),
+    ],
+    db: Session = Depends(get_db)
+):
 
+    person = db.query(Person).filter_by(id=person_id).one_or_none()
+
+    if person:
+        return person
+    else:    
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="person not found!"
+        )
+
+
+"""
 @app.get("/names/{name_id}", response_model=PersonResponseSchema)
 def retrieve_name_detail(
     name_id: Annotated[
@@ -129,8 +195,28 @@ def retrieve_name_detail(
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND, detail="object not found!"
     )
+"""
 
 
+@app.put(
+    "/names/{name_id}",
+    response_model=PersonResponseSchema,
+    status_code=status.HTTP_200_OK,
+)
+def update_name_detail(request: PersonUpdateSchema, name_id: int = Path(), db: Session = Depends(get_db)):
+    person = db.query(Person).filter_by(id=name_id).one_or_none()
+    if person:
+        person.name = request.name
+        db.commit()
+        db.refresh(person)
+        return person
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="object not found!"
+        )
+
+
+"""
 @app.put(
     "/names/{name_id}",
     response_model=PersonResponseSchema,
@@ -144,6 +230,7 @@ def update_name_detail(person: PersonUpdateSchema, name_id: int = Path()):
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND, detail="object not found!"
     )
+"""
 
 
 """
@@ -160,6 +247,23 @@ def update_name_detail(name_id: int = Path(), name: str = Form()):
 
 
 @app.delete("/names/{name_id}")
+def delete_name(name_id: int, db: Session = Depends(get_db)):
+    person = db.query(Person).filter_by(id=name_id).one_or_none()
+    if person:
+        db.delete(person)
+        db.commit()
+        return JSONResponse(
+            content={"detail": "object removed successfully!"},
+            status_code=status.HTTP_200_OK,
+        )
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="object not found!"
+        )
+
+
+"""
+@app.delete("/names/{name_id}")
 def delete_name(name_id: int):
     for item in names_list:
         if item["id"] == name_id:
@@ -171,6 +275,7 @@ def delete_name(name_id: int):
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND, detail="object not found!"
     )
+"""
 
 
 @app.post("/upload-file/")

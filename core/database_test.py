@@ -168,6 +168,8 @@ Base.metadata.create_all(engine)
 
 session = SessionLocal()
 
+
+""" Query for testing many-to-many relationships between User and Course models
 session.add(User(username="John", email="john@gmail.com", password="123"))
 session.commit()
 
@@ -195,6 +197,7 @@ session.commit()
 print(user.courses)
 print(python_course.attendees)
 print(fastapi_course.attendees)
+"""
 
 
 """ Query for testing self-referencing relationship in the commit model

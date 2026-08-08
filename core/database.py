@@ -1,11 +1,12 @@
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.orm import sessionmaker, declarative_base
+from config import settings
 
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./sqlite.db"
+# SQLALCHEMY_DATABASE_URL = "sqlite:///./sqlite.db"
 
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
+    settings.SQLALCHEMY_DATABASE_URL,
     connect_args={"check_same_thread": False},  # only for sqlite
 )
 
@@ -19,7 +20,7 @@ class Person(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String())
-
+    
 
 def get_db():
     db = SessionLocal()

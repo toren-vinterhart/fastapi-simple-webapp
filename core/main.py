@@ -23,7 +23,7 @@ from database import Base, engine, Person, get_db
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Application starting up...")
-    Base.metadata.create_all(engine)
+    # Base.metadata.create_all(engine)
     yield
     print("Application shutting down...")
 
